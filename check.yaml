@@ -1,0 +1,8 @@
+debug: true
+pprof_enabled: true
+pprof_add_and_port: localhost:6060
+log_format: text
+kubeconfig: ""
+projects: [
+  "name": "Check one"
+]
