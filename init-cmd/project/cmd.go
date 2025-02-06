@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewAuthCommand() *cobra.Command {
+func NewProjectCommand() *cobra.Command {
 	projectCmd := &cobra.Command{
 		Use:   "project",
 		Short: "Create new project",

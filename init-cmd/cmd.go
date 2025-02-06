@@ -3,6 +3,7 @@ package init_cmd
 import (
 	"github.com/leodahal4/dev-kit/config"
 	"github.com/leodahal4/dev-kit/init-cmd/project"
+	checktools "github.com/leodahal4/dev-kit/init-cmd/check-tools"
 	"github.com/spf13/cobra"
 )
 
@@ -27,8 +28,8 @@ func NewInitCommand() *cobra.Command {
 		SilenceErrors:         true,
 	}
 
-	initCmd.AddCommand(project.NewAuthCommand())
-
+	initCmd.AddCommand(project.NewProjectCommand())
+  initCmd.AddCommand(checktools.NewToolsCheckerCommand())
 	return initCmd
 }
 

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -211,7 +210,7 @@ func validateAndSetDefaults(cfg *GlobalConfig) error {
 
 func validateConfig(check *GlobalConfig) error {
 	if !check.CHECKED_TOOLS {
-		return errors.New("tools are not checked, start with \"devkit check\" command")
+    logrus.Errorf("tools are not checked, start with \"devkit check\" command, so that this tool can confirm all needed tools")
 	}
 	return nil
 }
