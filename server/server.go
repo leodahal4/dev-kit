@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -11,16 +12,18 @@ import (
 
 	"github.com/leodahal4/dev-kit/config"
 	pb "github.com/leodahal4/dev-kit/protos"
+	"github.com/leodahal4/dev-kit/server/models"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type server struct {
+type Server struct {
 	pb.UnimplementedConfigServiceServer
 	mu     sync.RWMutex
 	config *config.GlobalConfig
+	repo   models.RepoImpl
 }
 
 func loadConfig() (*config.GlobalConfig, error) {
@@ -70,7 +73,7 @@ func convertToProtoProject(p config.ProjectConfig) *pb.ProjectConfig {
 	}
 }
 
-func (s *server) GetGlobalConfig(ctx context.Context, _ *pb.Empty) (*pb.GlobalConfigResponse, error) {
+func (s *Server) GetGlobalConfig(ctx context.Context, _ *pb.Empty) (*pb.GlobalConfigResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -91,74 +94,7 @@ func (s *server) GetGlobalConfig(ctx context.Context, _ *pb.Empty) (*pb.GlobalCo
 	}, nil
 }
 
-func (s *server) GetProject(ctx context.Context, req *pb.ProjectRequest) (*pb.ProjectResponse, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	for _, p := range s.config.Projects {
-		if p.ID == req.ProjectId {
-			return &pb.ProjectResponse{
-				Project: convertToProtoProject(p),
-			}, nil
-		}
-	}
-
-	return nil, status.Errorf(codes.NotFound, "project not found")
-}
-
-func (s *server) UpdateProject(ctx context.Context, req *pb.ProjectRequest) (*pb.ProjectResponse, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i, p := range s.config.Projects {
-		if p.ID == req.ProjectId {
-			// Update project
-			s.config.Projects[i] = config.ProjectConfig{
-				ID:             req.Project.Id,
-				Name:           req.Project.Name,
-				Description:    req.Project.Description,
-				IsMicroservice: req.Project.IsMicroservice,
-				IsValid:        true, // Set default value
-				Environments:   make([]config.EnvironmentConfig, len(req.Project.Environments)),
-			}
-
-			for j, env := range req.Project.Environments {
-				s.config.Projects[i].Environments[j] = config.EnvironmentConfig{
-					Name:        env.Name,
-					Description: env.Description,
-					Language:    env.Language,
-					Path:        env.Path,
-				}
-			}
-
-			if err := saveConfig(s.config); err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to save config: %v", err)
-			}
-
-			return &pb.ProjectResponse{
-				Project: convertToProtoProject(s.config.Projects[i]),
-			}, nil
-		}
-	}
-
-	return nil, status.Errorf(codes.NotFound, "project not found")
-}
-
-func (s *server) ListProjects(ctx context.Context, _ *pb.Empty) (*pb.ListProjectsResponse, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	projects := make([]*pb.ProjectConfig, len(s.config.Projects))
-	for i, p := range s.config.Projects {
-		projects[i] = convertToProtoProject(p)
-	}
-
-	return &pb.ListProjectsResponse{
-		Projects: projects,
-	}, nil
-}
-
-func (s *server) UpdateGlobalConfig(ctx context.Context, req *pb.GlobalConfigRequest) (*pb.GlobalConfigResponse, error) {
+func (s *Server) UpdateGlobalConfig(ctx context.Context, req *pb.GlobalConfigRequest) (*pb.GlobalConfigResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -178,7 +114,7 @@ func (s *server) UpdateGlobalConfig(ctx context.Context, req *pb.GlobalConfigReq
 }
 
 // CreateEnvironment handles the creation of a new environment
-func (s *server) CreateEnvironment(ctx context.Context, req *pb.CreateEnvironmentRequest) (*pb.Empty, error) {
+func (s *Server) CreateEnvironment(ctx context.Context, req *pb.CreateEnvironmentRequest) (*pb.Empty, error) {
 	logrus.Infof("got the request :%+v", req)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -213,19 +149,26 @@ func (s *server) CreateEnvironment(ctx context.Context, req *pb.CreateEnvironmen
 }
 
 func main() {
-	config, err := config.LoadConfig("")
+	configPath := flag.String("c", "", "Path to the config file")
+	flag.Parse()
+
+	// Load the config from the specified path
+	config, err := config.LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Initialize the database connection
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterConfigServiceServer(s, &server{
+	repo := models.NewConfigRepository(config)
+	pb.RegisterConfigServiceServer(s, &Server{
 		config: config,
+		repo:   repo,
 	})
 
 	log.Printf("Server listening at %v", lis.Addr())

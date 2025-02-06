@@ -64,7 +64,9 @@ type GlobalConfig struct {
 
 	// KUBECONFIG is the path to the kubeconfig file.
 	// NOTE: THIS IS ONLY USED IF API DOESNOT PROVIDE KUBECONFIG
-	KUBECONFIG string `json:"KUBECONFIG" required:"false"`
+	KUBECONFIG  string `json:"KUBECONFIG" required:"false"`
+	SQLITEDB    string `json:"db_path" default:".dev-kit/devkit.sqlite3"`
+	HOME_FOLDER string `json:"home"`
 
 	CHECKED_TOOLS bool `json:"checked_tools" yaml:"checked_tools" required:"true"`
 
@@ -136,6 +138,7 @@ func loadDefaultConfig() (*GlobalConfig, error) {
 		logrus.Errorf("error unmarshalling default config file: %v", err)
 		return nil, err
 	}
+	globalConfig.HOME_FOLDER = home
 
 	return globalConfig, validateAndSetDefaults(globalConfig)
 }
