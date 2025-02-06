@@ -5,6 +5,8 @@ import (
 
 	"github.com/leodahal4/dev-kit/config"
 	init_cmd "github.com/leodahal4/dev-kit/init-cmd"
+	"github.com/leodahal4/dev-kit/run"
+	"github.com/leodahal4/dev-kit/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -31,18 +33,23 @@ Run 'devkit help' for more information on available commands and options.`
 var cfgPath string
 
 var Cmd = &cobra.Command{
-	Use:   "devkit",
-	Short: "DevKit, prepared by Dev for Dev",
-	Long:  RootHelp,
-	Run:   RootCmdRun,
-	SilenceUsage:  true,
+	Use:                   "devkit",
+	Short:                 "DevKit, prepared by Dev for Dev",
+	Long:                  RootHelp,
+	Run:                   RootCmdRun,
+	SilenceUsage:          true,
 	DisableFlagsInUseLine: true,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		cobra.OnInitialize(initConfig)
+		utils.ParseAndSaveCommand(cmd, args)
+	},
 }
 
 func Execute() {
 	Cmd.Flags().BoolP("version", "v", false, "print DevKit version")
 	Cmd.PersistentFlags().StringVarP(&cfgPath, "config", "c", "", "base project directory eg. github.com/spf13/")
 	Cmd.AddCommand(init_cmd.NewInitCommand())
+	Cmd.AddCommand(run.NewRun())
 	Cmd.AddGroup(&cobra.Group{
 		ID:    "init",
 		Title: "Init Commands",
@@ -50,7 +57,7 @@ func Execute() {
 
 	err := Cmd.Execute()
 	if err != nil {
-		logrus.Errorf("Error executing command: %s", err.Error())
+		logrus.Errorf("Err: %s", err.Error())
 	}
 }
 

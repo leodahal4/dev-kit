@@ -2,8 +2,9 @@ package init_cmd
 
 import (
 	"github.com/leodahal4/dev-kit/config"
-	"github.com/leodahal4/dev-kit/init-cmd/project"
 	checktools "github.com/leodahal4/dev-kit/init-cmd/check-tools"
+	"github.com/leodahal4/dev-kit/init-cmd/environment"
+	"github.com/leodahal4/dev-kit/init-cmd/project"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +17,7 @@ var example = `
 `
 
 func NewInitCommand() *cobra.Command {
-	initCmd := &cobra.Command {
+	initCmd := &cobra.Command{
 		Use:                   "init",
 		Short:                 "Initialize Command",
 		Long:                  RootHelp,
@@ -29,7 +30,8 @@ func NewInitCommand() *cobra.Command {
 	}
 
 	initCmd.AddCommand(project.NewProjectCommand())
-  initCmd.AddCommand(checktools.NewToolsCheckerCommand())
+	initCmd.AddCommand(checktools.NewToolsCheckerCommand())
+	initCmd.AddCommand(environment.NewEnvCommand())
 	return initCmd
 }
 

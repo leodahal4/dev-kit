@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,11 @@ import (
 var globalConfig *GlobalConfig
 var defaultConfigPath string
 
+const (
+	defaultConfigFileName = "config.yaml"
+	devKitDirName         = ".dev-kit"
+)
+
 // Default configuration values
 var defaultConfig = GlobalConfig{
 	DEBUG:              false,
@@ -22,12 +28,13 @@ var defaultConfig = GlobalConfig{
 	PPROF_ADD_AND_PORT: "localhost:6060",
 	LOG_FORMAT:         "text",
 	KUBECONFIG:         "",
-	CHECKED_TOOLS: false,
+	CHECKED_TOOLS:      false,
 
 	Projects: []ProjectConfig{},
 }
 
 type ProjectConfig struct {
+	ID             string              `json:"id"`
 	Name           string              `json:"name"`
 	Description    string              `json:"description"`
 	IsValid        bool                `json:"-"`
@@ -61,110 +68,110 @@ type GlobalConfig struct {
 
 	CHECKED_TOOLS bool `json:"checked_tools" yaml:"checked_tools" required:"true"`
 
-	Projects []ProjectConfig `json:"projects"`
+	Projects    []ProjectConfig `json:"projects"`
+	CURRENT_CMD string          `json:"_"`
 }
 
 // LoadConfig loads the configuration from a file or environment variables
 func LoadConfig(configPath string) (*GlobalConfig, error) {
 	if configPath != "" {
-		// Check if the configuration file exists
-		if _, err := os.Stat(configPath); err == nil {
-			// Read the configuration file
-			data, err := os.ReadFile(configPath)
-			if err != nil {
-				return nil, fmt.Errorf("error reading config file: %w", err)
-			}
-
-			// Unmarshal the JSON data into the globalConfig
-			if err = yaml.Unmarshal(data, &globalConfig); err != nil {
-				return nil, fmt.Errorf("error unmarshalling config file: %w", err)
-			}
-
-			// Validate and set defaults
-			if err = validateAndSetDefaults(globalConfig); err != nil {
-				return nil, err
-			}
-
-			logrus.Info("Successfully loaded configuration from file.")
-			logrus.Infof("%+v", globalConfig)
-			return globalConfig, validateConfig(globalConfig)
-		} else if os.IsNotExist(err) {
-			logrus.Warn("Configuration file does not exist.")
-		} else {
-			return nil, fmt.Errorf("error checking config file: %w", err)
+		if err := loadConfigFromFile(configPath); err != nil {
+			return nil, err
 		}
 	}
 
-	// If no config file is provided or found, create default config
+	return loadDefaultConfig()
+}
+
+func loadConfigFromFile(configPath string) error {
+	if _, err := os.Stat(configPath); err == nil {
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			logrus.Errorf("error reading config file: %v", err)
+			return err
+		}
+
+		if err = yaml.Unmarshal(data, &globalConfig); err != nil {
+			logrus.Errorf("error unmarshalling config file: %v", err)
+			return err
+		}
+
+		return validateAndSetDefaults(globalConfig)
+	} else if os.IsNotExist(err) {
+		logrus.Warn("Configuration file does not exist.")
+		return nil
+	} else {
+		logrus.Errorf("error checking config file: %v", err)
+		return err
+	}
+}
+
+func loadDefaultConfig() (*GlobalConfig, error) {
 	home, err := homedir.Dir()
 	if err != nil {
-		return nil, fmt.Errorf("error getting home directory: %w", err)
+		logrus.Errorf("error getting home directory: %v", err)
+		return nil, err
 	}
 
-	// Create .dev-kit directory
-	devKitDir := filepath.Join(home, ".dev-kit")
+	devKitDir := filepath.Join(home, devKitDirName)
 	if err := os.MkdirAll(devKitDir, os.ModePerm); err != nil {
-		return nil, fmt.Errorf("error creating .dev-kit directory: %w", err)
+		logrus.Errorf("error creating .dev-kit directory: %v", err)
+		return nil, err
 	}
 
-	// Create default config file
-	defaultConfigPath = filepath.Join(devKitDir, "config.yaml")
+	defaultConfigPath = filepath.Join(devKitDir, defaultConfigFileName)
 	if _, err := os.Stat(defaultConfigPath); os.IsNotExist(err) {
-		return CreateDefaultConfig()
+		if _, err := CreateDefaultConfig(); err != nil {
+			return nil, err
+		}
 	}
 
 	data, err := os.ReadFile(defaultConfigPath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading config file: %w", err)
-	}
-
-	// Unmarshal the JSON data into the globalConfig
-	if err = yaml.Unmarshal(data, &globalConfig); err != nil {
-		return nil, fmt.Errorf("error unmarshalling config file: %w", err)
-	}
-
-	// Validate and set defaults
-
-	// Validate and set defaults
-	if err = validateAndSetDefaults(globalConfig); err != nil {
+		logrus.Errorf("error reading default config file: %v", err)
 		return nil, err
 	}
 
-	logrus.Info("Successfully loaded default configuration.")
-	return globalConfig, validateConfig(globalConfig)
+	if err = yaml.Unmarshal(data, &globalConfig); err != nil {
+		logrus.Errorf("error unmarshalling default config file: %v", err)
+		return nil, err
+	}
+
+	return globalConfig, validateAndSetDefaults(globalConfig)
 }
 
+// CreateDefaultConfig creates the default configuration file
 func CreateDefaultConfig() (*GlobalConfig, error) {
-	// If no config file is provided or found, create default config
-	home, err := homedir.Dir()
-	if err != nil {
-		return nil, fmt.Errorf("error getting home directory: %w", err)
-	}
-
-	// Create .dev-kit directory
-	devKitDir := filepath.Join(home, ".dev-kit")
-	if err := os.MkdirAll(devKitDir, os.ModePerm); err != nil {
-		return nil, fmt.Errorf("error creating .dev-kit directory: %w", err)
-	}
-
-	// Create default config file
-	defaultConfigPath = filepath.Join(devKitDir, "config.yaml")
-
-	if err = validateAndSetDefaults(&defaultConfig); err != nil {
+	if err := validateAndSetDefaults(&defaultConfig); err != nil {
 		return nil, err
 	}
 
 	data, err := yaml.Marshal(defaultConfig)
 	if err != nil {
-		return nil, fmt.Errorf("error marshalling default config: %w", err)
+		logrus.Errorf("error marshalling default config: %v", err)
+		return nil, err
 	}
+
+	home, err := homedir.Dir()
+	if err != nil {
+		logrus.Errorf("error getting home directory: %v", err)
+		return nil, err
+	}
+
+	devKitDir := filepath.Join(home, devKitDirName)
+	if err := os.MkdirAll(devKitDir, os.ModePerm); err != nil {
+		logrus.Errorf("error creating .dev-kit directory: %v", err)
+		return nil, err
+	}
+
+	defaultConfigPath = filepath.Join(devKitDir, defaultConfigFileName)
 	if _, err := os.Stat(defaultConfigPath); os.IsNotExist(err) {
 		if err := os.WriteFile(defaultConfigPath, data, 0644); err != nil {
-			return nil, fmt.Errorf("error writing default config file: %w", err)
+			logrus.Errorf("error writing default config file: %v", err)
+			return nil, err
 		}
 	}
 
-	logrus.Info("Successfully loaded default configuration.")
 	return globalConfig, nil
 }
 
@@ -208,9 +215,69 @@ func validateAndSetDefaults(cfg *GlobalConfig) error {
 	return nil
 }
 
-func validateConfig(check *GlobalConfig) error {
+func ValidateConfig(check *GlobalConfig) error {
 	if !check.CHECKED_TOOLS {
-    logrus.Errorf("tools are not checked, start with \"devkit check\" command, so that this tool can confirm all needed tools")
+		// logrus.Errorf("tools are not checked, start with \"devkit check\" command, so that this tool can confirm all needed tools")
+		return errors.New("tools are not checked, start with \"devkit check\" command, so that this tool can confirm all needed tools")
 	}
 	return nil
+}
+
+func GetConfig() *GlobalConfig {
+	return globalConfig
+}
+
+func (cfg *GlobalConfig) UpdateConfig() {
+	data, _ := yaml.Marshal(cfg)
+	os.WriteFile(defaultConfigPath, data, 0644)
+}
+
+func UpdateConfig(config *GlobalConfig) {
+	data, _ := yaml.Marshal(config)
+	os.WriteFile(defaultConfigPath, data, 0644)
+}
+
+// ValidateEnv checks if an environment with the same name already exists in the project
+func (cfg *GlobalConfig) ValidateEnv(projectID, envName, path string) error {
+	// Check if the project exists by ID
+	var project *ProjectConfig
+	for _, p := range cfg.Projects {
+		if p.ID == projectID {
+			project = &p
+			break
+		}
+	}
+
+	if project == nil {
+		return fmt.Errorf("project with ID '%s' does not exist", projectID)
+	}
+
+	// Check for duplicate environment names
+	for _, env := range project.Environments {
+		if env.Name == envName {
+			return fmt.Errorf("environment with name '%s' already exists in project with ID '%s'", envName, projectID)
+		}
+	}
+
+	// Validate the path (you can add more specific path validation as needed)
+	if path == "" {
+		return fmt.Errorf("path cannot be empty")
+	}
+
+	return nil
+}
+
+// ValidateProject checks if a project with the same name already exists
+func (cfg *GlobalConfig) ValidateProject(projectName string) error {
+	for _, project := range cfg.Projects {
+		if project.Name == projectName {
+			return fmt.Errorf("project with name '%s' already exists", projectName)
+		}
+	}
+	return nil
+}
+
+func (cfg *GlobalConfig) GetProjectNewId() int {
+	// Generate a new project ID based on the current number of projects
+	return len(cfg.Projects) + 1
 }

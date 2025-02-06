@@ -5,6 +5,7 @@ go 1.23.6
 require (
 	github.com/charmbracelet/bubbles v0.20.0
 	github.com/charmbracelet/lipgloss v0.13.0
+	github.com/chzyer/readline v1.5.1
 	github.com/julienroland/usg v0.0.0-20160918114137-cb52eabb3d84
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/sirupsen/logrus v1.9.3
@@ -35,6 +36,6 @@ require (
 	github.com/stretchr/testify v1.9.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.3.8 // indirect
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	golang.org/x/text v0.7.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )

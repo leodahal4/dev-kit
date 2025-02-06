@@ -1,4 +1,4 @@
-package terminal
+package utils
 
 import (
 	"bufio"
@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/chzyer/readline"
 	"golang.org/x/term"
 )
 
@@ -53,4 +54,17 @@ func (o *osCredentialProvider) Clear() {
 	default:
 		return
 	}
+}
+
+func AskInput(title, placeholder string) string {
+	input, _ := readline.New(title)
+	defer func(input *readline.Instance) {
+		_ = input.Close()
+	}(input)
+
+	data2 := []byte(placeholder)
+	_, _ = input.WriteStdin(data2)
+
+	userText, _ := input.Readline()
+	return strings.TrimSpace(userText)
 }
