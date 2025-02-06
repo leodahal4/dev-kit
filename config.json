@@ -1,0 +1,37 @@
+{
+  "debug": false,
+  "PPROF_ENABLED": false,
+  "PPROF_PORT": "localhost:6060",
+  "LOG_FORMAT": "text",
+  "KUBECONFIG": "",
+  "checked_tools": true,
+  "projects": [
+    {
+      "id": "1",
+      "name": "prizer",
+      "description": "this is perizer project",
+      "is_microservice": false,
+      "environments": [
+        {
+          "name": "controller",
+          "description": "this is controller",
+          "language": "",
+          "path": "/mnt/lab/perizer/computesphere-controller"
+        },
+        {
+          "name": "controller",
+          "description": "this is controller",
+          "language": "",
+          "path": "/mnt/lab/perizer/computesphere-api"
+        },
+        {
+          "name": "Sample Env",
+          "description": "",
+          "language": "",
+          "path": "/path/to/env"
+        }
+      ]
+    }
+  ],
+  "_": ""
+}

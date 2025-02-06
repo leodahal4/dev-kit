@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+option go_package = "./protos";
+
+service ConfigService {
+  rpc GetGlobalConfig (Empty) returns (GlobalConfigResponse) {}
+  rpc GetProject (ProjectRequest) returns (ProjectResponse) {}
+  rpc UpdateProject (ProjectRequest) returns (ProjectResponse) {}
+  rpc ListProjects (Empty) returns (ListProjectsResponse) {}
+  rpc UpdateGlobalConfig (GlobalConfigRequest) returns (GlobalConfigResponse) {}
+  rpc CreateEnvironment (CreateEnvironmentRequest) returns (Empty) {}
+}
+
+message Empty {}
+
+message EnvironmentConfig {
+  string name = 1;
+  string description = 2;
+  string language = 3;
+  string path = 4;
+}
+
+message ProjectConfig {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  bool is_microservice = 4;
+  repeated EnvironmentConfig environments = 5;
+}
+
+message GlobalConfigResponse {
+  bool debug = 1;
+  bool pprof_enabled = 2;
+  string pprof_add_and_port = 3;
+  string log_format = 4;
+  string kubeconfig = 5;
+  bool checked_tools = 6;
+  repeated ProjectConfig projects = 7;
+  string current_cmd = 8;
+}
+
+message ProjectRequest {
+  string project_id = 1;
+  ProjectConfig project = 2;
+}
+
+message ProjectResponse {
+  ProjectConfig project = 1;
+}
+
+message ListProjectsResponse {
+  repeated ProjectConfig projects = 1;
+}
+
+message GlobalConfigRequest {
+  GlobalConfigResponse config = 1;
+}
+
+message CreateEnvironmentRequest {
+  string project_id = 1;
+  EnvironmentConfig environment = 2;
+}
